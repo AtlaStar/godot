@@ -700,6 +700,8 @@ int RichTextLabel::_process_line(ItemFrame *p_frame, const Vector2 &p_ofs, int &
 				if (p_mode != PROCESS_CACHE) {
 					lh = line < l.height_caches.size() ? l.height_caches[line] : 1;
 					line_is_blank = true;
+				} else {
+					l.char_count++; //a newline is a character, it should be treated as one
 				}
 
 			} break;
