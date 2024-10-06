@@ -107,12 +107,12 @@ ParticlesStorage::ParticlesStorage() {
 		actions.renames["COLLISION_NORMAL"] = "collision_normal";
 		actions.renames["COLLISION_DEPTH"] = "collision_depth";
 		actions.renames["ATTRACTOR_FORCE"] = "attractor_force";
-
+		actions.renames["is_restarting"] = "is_restarting";
+		actions.renames["last_transform"] = "last_transform";
 		actions.render_mode_defines["disable_force"] = "#define DISABLE_FORCE\n";
 		actions.render_mode_defines["disable_velocity"] = "#define DISABLE_VELOCITY\n";
 		actions.render_mode_defines["keep_data"] = "#define ENABLE_KEEP_DATA\n";
 		actions.render_mode_defines["collision_use_scale"] = "#define USE_COLLISION_SCALE\n";
-
 		actions.base_texture_binding_index = 1;
 		actions.texture_layout_set = 3;
 		actions.base_uniform_string = "material.";
@@ -1104,8 +1104,14 @@ void ParticlesStorage::_particles_process(Particles *p_particles, double p_delta
 
 	if (sub_emitter && sub_emitter->emission_storage_buffer.is_valid()) {
 		//	print_line("updating subemitter buffer");
-		int32_t zero[4] = { 0, sub_emitter->amount, 0, 0 };
-		RD::get_singleton()->buffer_update(sub_emitter->emission_storage_buffer, 0, sizeof(uint32_t) * 4, zero);
+		auto buff = sub_emitter->emission_buffer;
+
+		auto data = RD::get_singleton()->buffer_get_data(sub_emitter->emission_storage_buffer, 0, sizeof(int32_t));
+		int32_t val = *(int32_t *)(data.ptr());
+		if (!buff || val < 0) {
+			RD::get_singleton()->buffer_update(sub_emitter->emission_storage_buffer, 0, sizeof(uint32_t) * 4 + sizeof(ParticleEmissionBuffer::Data) * sub_emitter->emission_buffer->particle_count, sub_emitter->emission_buffer);
+		}
+
 		push_constant.can_emit = true;
 
 		if (sub_emitter->emitting) {
@@ -1114,17 +1120,15 @@ void ParticlesStorage::_particles_process(Particles *p_particles, double p_delta
 		}
 		//make sure the sub emitter processes particles too
 		sub_emitter->inactive = false;
-		sub_emitter->inactive_time = 0;
+		sub_emitter->inactive_time = 0.0;
 
 		sub_emitter->force_sub_emit = true;
-
 	} else {
 		push_constant.can_emit = false;
 	}
 
 	if (p_particles->emission_buffer && p_particles->emission_buffer->particle_count) {
 		RD::get_singleton()->buffer_update(p_particles->emission_storage_buffer, 0, sizeof(uint32_t) * 4 + sizeof(ParticleEmissionBuffer::Data) * p_particles->emission_buffer->particle_count, p_particles->emission_buffer);
-		p_particles->emission_buffer->particle_count = 0;
 	}
 
 	p_particles->clear = false;

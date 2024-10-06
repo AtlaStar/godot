@@ -251,9 +251,12 @@ void main() {
 	uint index = particle / params.trail_size;
 	uint frame = (particle % params.trail_size);
 
+	bool is_restarting = false;
+
 #define FRAME frame_history.data[frame]
 #define PARTICLE particles.data[particle]
 
+	mat4 last_transform = PARTICLE.xform;
 	bool apply_forces = true;
 	bool apply_velocity = true;
 	float local_delta = FRAME.delta;
@@ -404,21 +407,21 @@ void main() {
 		if (FRAME.system_phase > FRAME.prev_system_phase) {
 			// restart_phase >= prev_system_phase is used so particles emit in the first frame they are processed
 
-			if (restart_phase >= FRAME.prev_system_phase && restart_phase < FRAME.system_phase) {
+			if (restart_phase >= FRAME.prev_system_phase && restart_phase <= FRAME.system_phase) {
 				restart = true;
 				if (params.use_fractional_delta) {
 					local_delta = (FRAME.system_phase - restart_phase) * params.lifetime;
 				}
 			}
 
-		} else if (FRAME.delta > 0.0) {
+		} else if (FRAME.delta >= 0.0) {
 			if (restart_phase >= FRAME.prev_system_phase) {
 				restart = true;
 				if (params.use_fractional_delta) {
 					local_delta = (1.0 - restart_phase + FRAME.system_phase) * params.lifetime;
 				}
 
-			} else if (restart_phase < FRAME.system_phase) {
+			} else if (restart_phase <= FRAME.system_phase) {
 				restart = true;
 				if (params.use_fractional_delta) {
 					local_delta = (FRAME.system_phase - restart_phase) * params.lifetime;
@@ -431,6 +434,7 @@ void main() {
 		}
 
 		if (restart) {
+			is_restarting = true;
 			PARTICLE.flags = FRAME.emitting ? (PARTICLE_FLAG_ACTIVE | PARTICLE_FLAG_STARTED | (FRAME.cycle << PARTICLE_FRAME_SHIFT)) : 0;
 			restart_position = true;
 			restart_rotation_scale = true;
